@@ -1,6 +1,6 @@
 from flask import Flask, render_template, flash, request, redirect, url_for
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField, SelectField, PasswordField, EmailField, ValidationError
+from wtforms import StringField, SubmitField, SelectField, PasswordField, EmailField, ValidationError, DateField
 from wtforms_sqlalchemy.fields import QuerySelectField
 from wtforms.validators import DataRequired, EqualTo, Length
 from flask_sqlalchemy import SQLAlchemy
@@ -8,10 +8,11 @@ from flask_migrate import Migrate
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, login_required, user_logged_out, logout_user, current_user
-
+from datetime import datetime
 
 # Create a flask instance
 app = Flask(__name__)
+app.config['DEBUG'] = True
 app.app_context().push()
 
 # Add Database
@@ -28,53 +29,68 @@ migrate = Migrate(app, db)
 
 
 ############### DATABASE THINGS ##################
+   
+# Create Physician Model
 
-class Stages(db.Model):
-    name = db.Column(db.String(200), nullable=False, primary_key=True)
+class Physician(db.Model, UserMixin):
+    id = db.Column(db.String(200), primary_key=True)
+    pwd = db.Column(db.String(256), nullable=False)
     
-    #Create a String
-    def __repr__(self):
-        return '{}'.format(self.name)
+    baseline_survey_completion_status = db.Column(db.String(256))
+    baseline_survey_start_date = db.Column(db.Date)
+    baseline_survey_completion_date = db.Column(db.Date)
+    baseline_survey_wave_number = db.Column(db.Integer)
+
+    followUp_one_survey_start_date = db.Column(db.Date)
+    followUp_one_completion_status = db.Column(db.String(256))
+    followUp_one_completion_date = db.Column(db.Date)
+    followUp_one_wave_number = db.Column(db.Integer)
     
-#Create Model
-class Admin(db.Model, UserMixin):
+    followUp_two_survey_start_date = db.Column(db.Date)
+    followUp_two_completion_status = db.Column(db.String(256))
+    followUp_two_completion_date = db.Column(db.String(256))
+    followUp_two_wave_number = db.Column(db.Integer)
+
+# Create Patient Model
+class Patient(db.Model):
+    id = db.Column(db.String(200), primary_key=True)
     name = db.Column(db.String(200), nullable=False)
-    email = db.Column(db.String(120), primary_key=True)
-    # password = db.Column(db.String(128), nullable=False)
-    date_added = db.Column(db.DateTime, default=datetime.utcnow)
-    role = db.Column(db.String(100), nullable=False)
-    password_hash = db.Column(db.String(128))
+    email = db.Column(db.String(200), nullable=False, unique=True)
+    date_added = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    last_visit_date = db.Column(db.String(200))
+    physician_id = db.Column(db.String, db.ForeignKey('physician.id', ondelete='CASCADE'), nullable=False)
+    physician_id_ref_link = db.relationship('Physician', backref='patient')
+    active_inactive = db.Column(db.Boolean, default=True)
 
-    # Password Hasing
-    @property
-    def password(self):
-        raise AttributeError("Password is not readable !")
+    last_invite_date = db.Column(db.DateTime, default=datetime.utcnow)
+    number_of_invites = db.Column(db.Integer, default=0)
+    invitation_sent = db.Column(db.Boolean, default=False)
+
+    new_prescription_treatment_start_date = db.Column(db.String(20))
+
+    baseline_survey_completion_status = db.Column(db.String(256))
+    baseline_survey_start_date = db.Column(db.Date)
+    baseline_survey_completion_date = db.Column(db.Date)
+    baseline_survey_wave_number = db.Column(db.Integer)
+
+    followUp_one_survey_start_date = db.Column(db.Date)
+    followUp_one_completion_status = db.Column(db.String(256))
+    followUp_one_completion_date = db.Column(db.Date)
+    followUp_one_wave_number = db.Column(db.Integer)
     
-    @password.setter
-    def password(self, password):
-        self.password_hash = generate_password_hash(password)
+    followUp_two_survey_start_date = db.Column(db.Date)
+    followUp_two_completion_status = db.Column(db.String(256))
+    followUp_two_completion_date = db.Column(db.Date)
+    followUp_two_wave_number = db.Column(db.Integer)
 
-    def verify_password(self, password):
-        return check_password_hash(self.password_hash, password)
-        
-    #Create a String
-    def __repr__(self):
-        return '<Name %r >' % self.name
-    
-    # overriding get_id()
-    def get_id(self):
-        return str(self.email)
-    
-class Client(db.Model):
-    case_id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), nullable=False, unique=True)
-    name = db.Column(db.String(200), nullable=False)
-    stage_name = db.Column(db.String, db.ForeignKey('stages.name', ondelete='CASCADE'), nullable=False)
-    admin_email = db.Column(db.String, db.ForeignKey('admin.email'))
-    adminemails = db.relationship('Admin', backref='client')
-    stagess = db.relationship('Stages', backref='client')
-
-
+# Create Activity Log Model
+class ActivityLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(120), nullable=False)
+    log_content = db.Column(db.String(120), nullable=False)
+    log_date_time = db.Column(db.DateTime, nullable=False)
+    system_version = db.Column(db.Integer, default=1)
+    source = db.Column(db.String(20), nullable=False)
 
 ############ Flask Login Stuff #############
 login_manager = LoginManager()
@@ -83,39 +99,40 @@ login_manager.login_view = 'login'
 
 @login_manager.user_loader
 def load_user(user_id):
-    return Admin.query.get(str(user_id))
+    return Physician.query.get(user_id)
 
 
 ############## Form Classes ################
 
-def get_stage_query():
-    return Stages.query
-
 # Create UserForm Class
-class UserForm(FlaskForm):
+class PatientForm(FlaskForm):
     name = StringField("Name", validators=[DataRequired()])
     email = EmailField("Email", validators=[DataRequired()])
-    password = PasswordField("Password", validators=[DataRequired(), EqualTo('password_repeat', message="Passwords Must Match !")])
-    password_repeat = PasswordField("Confirm Password", validators=[DataRequired()])
-    role = SelectField("Role", choices=['Admin', 'Client'], validators=[DataRequired()])
-    # stage = QuerySelectField("Stage", query_factory=get_stage_query, get_label='name', validators=[DataRequired()])
-    # stage = QuerySelectField("Stage", query_factory=get_stage_query, get_label='name')
+    date = DateField("Last visit Date", validators=[DataRequired()])
     submit = SubmitField("Submit")
 
-# Create UserForm Class
+# Create Login Class
 class LoginForm(FlaskForm):
-    email = EmailField("Email", validators=[DataRequired()])
+    id = StringField("User ID", validators=[DataRequired()])
     password = PasswordField("Password", validators=[DataRequired()])
     submit = SubmitField("Submit")
 
 
 #############################################
 
+## DateFormat Convert Utility
+@app.template_filter('datetimeformat')
+def datetimeformat(value):
+    x = value.split("-")
+    x = str(x[1]) + "-" + str(x[2]) + "-" + str(x[0])
+    value = datetime.strptime(x, "%m-%d-%Y")
+    return value.strftime('%m-%d-%Y')
 
-# Create a route decorator
+# Index
 @app.route('/')
 def index():
-    return render_template("index.html")
+    # return render_template("index.html")
+    redirect(url_for('login'))
 
 #Login
 @app.route('/login', methods=['GET', 'POST'])
@@ -123,14 +140,14 @@ def login():
     if not current_user.is_authenticated:
         form = LoginForm()
         if form.validate_on_submit():
-            email = form.email.data
+            id = form.id.data
             password = form.password.data
             
-            # Lookup user by Email Address
-            user = Admin.query.filter_by(email=email).first()
-
+            # Lookup Physician with ID
+            user = Physician.query.filter_by(id=id).first()
+            
             if user:
-                if check_password_hash(user.password_hash, password):
+                if user.pwd == password:
                     login_user(user,remember=True)
                     return redirect(url_for('dashboard'))
                 else:
@@ -157,63 +174,72 @@ def logout():
     return redirect(url_for('login'))
 
 # Add User
-@app.route('/user/add', methods=['GET', 'POST'])
-def add_user():
-    form = UserForm()
+
+def generate_patients_id():
+    #PT10001 - #PT99999
+    user = Patient.query.order_by(Patient.id.desc()).first()
+    if user:
+        pt_id_serial = int(user.id[2:])
+        new_pt_id = 'PT' + str(pt_id_serial + 1)
+    else:
+        new_pt_id = 'PT10001'
+    return new_pt_id
+
+@app.route('/patient/add', methods=['GET', 'POST'])
+@login_required
+def add_patient():
+    form = PatientForm()
+    my_patients = Patient.query.order_by(Patient.date_added)
+    my_ECP = Patient.query.filter_by(id=current_user.id)
+
     if form.validate_on_submit():
-        user = Admin.query.filter_by(email=form.email.data).first()
+        user = Patient.query.filter_by(email=form.email.data).first()
         if user is None:
-            hashed_pw = generate_password_hash(form.password.data, "sha256")
-            user = Admin(name=form.name.data, 
+            user = Patient(id=generate_patients_id(), name=form.name.data, 
                         email=form.email.data, 
-                        password_hash=hashed_pw,
-                        role=form.role.data)
+                        last_visit_date=form.date.data,
+                        physician_id_ref_link = current_user
+                        )
             db.session.add(user)
             db.session.commit()
             flash("User Added Successfully")
+            return redirect(url_for('add_patient'))
         else:
             flash(form.email.data + " already registered !! Please try again")
-            name = form.name.data
-            
-        # Nullify Form for next Inputs
-        name = form.name.data
-        form.name.data = ''
-        form.email.data = ''
-        form.password.data = ''
-        form.password_repeat.data = ''
-        form.role.data = ''
-        # form.stage.data = ''
-    our_users = Admin.query.order_by(Admin.date_added)
-    stages = Stages.query.order_by(Stages.name)
-    return render_template("add_user.html", form=form, our_users=our_users, stages=stages)
+    return render_template("add_patient.html", 
+                           form=form, 
+                           my_ECP=my_ECP, 
+                           my_patients=my_patients, 
+                           current_user=current_user
+                           )
 
 
-# Update User Details
-@app.route('/update/<id>', methods=['GET', 'POST'])
-def update_user(id):
-    form = UserForm()
-    name_to_update = Admin.query.get_or_404(id)
-    if request.method == "POST":
-        name_to_update.name = request.form['name']
-        name_to_update.email = request.form['email']
-        name_to_update.fav_color = request.form['fav_color']
-        db.session.commit()
-        flash("User Updated Successfully ")
-        our_users = Admin.query.order_by(Admin.date_added)
-        return render_template("add_user.html",form=form, our_users = our_users)
-    else:
-        return render_template("update_user.html",form=form, name_to_update = name_to_update)
+# # Update User Details
+# @app.route('/update/<id>', methods=['GET', 'POST'])
+# def update_user(id):
+#     form = UserForm()
+#     name_to_update = Admin.query.get_or_404(id)
+#     if request.method == "POST":
+#         name_to_update.name = request.form['name']
+#         name_to_update.email = request.form['email']
+#         name_to_update.fav_color = request.form['fav_color']
+#         db.session.commit()
+#         flash("User Updated Successfully ")
+#         our_users = Admin.query.order_by(Admin.date_added)
+#         return render_template("add_user.html",form=form, our_users = our_users)
+#     else:
+#         return render_template("update_user.html",form=form, name_to_update = name_to_update)
     
-# Delete User
-@app.route('/delete/<email>', methods=['GET', 'POST'])
-def delete_user(email):
-    user_to_delete = Admin.query.get_or_404(email)
-    db.session.delete(user_to_delete)
-    db.session.commit()
-    flash("User Deleted Successfully")
-    form = UserForm()
-    our_users = Admin.query.order_by(Admin.date_added)
-    return render_template("add_user.html",form=form, our_users = our_users)
+# # Delete User
+# @app.route('/delete/<email>', methods=['GET', 'POST'])
+# def delete_user(email):
+#     user_to_delete = Admin.query.get_or_404(email)
+#     db.session.delete(user_to_delete)
+#     db.session.commit()
+#     flash("User Deleted Successfully")
+#     form = UserForm()
+#     our_users = Admin.query.order_by(Admin.date_added)
+#     return render_template("add_user.html",form=form, our_users = our_users)
 
 ############## Errors ###############
 # Invalid URL

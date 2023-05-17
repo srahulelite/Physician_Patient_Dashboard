@@ -6,3 +6,9 @@ h1{
 body{
     background: #f4f4f4;
 }
+table, td, tr, th{
+    border:1px solid black;
+    border-collapse: collapse;
+    word-wrap: normal;
+    text-align: center;
+}
