@@ -132,7 +132,7 @@ def datetimeformat(value):
 @app.route('/')
 def index():
     # return render_template("index.html")
-    redirect(url_for('login'))
+    return redirect(url_for('login'))
 
 #Login
 @app.route('/login', methods=['GET', 'POST'])
@@ -149,13 +149,13 @@ def login():
             if user:
                 if user.pwd == password:
                     login_user(user,remember=True)
-                    return redirect(url_for('dashboard'))
+                    return redirect(url_for('add_patient'))
                 else:
                     flash("Wrong Password")
             else:
                 flash("User Doesn't Exists")                
         return render_template("login.html", form=form)
-    return redirect(url_for('dashboard'))
+    return render_template("index.html")
 
 
 # Dasbhoard page

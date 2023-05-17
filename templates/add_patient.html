@@ -7,40 +7,46 @@
     </div>
 {% endfor %}
     {% if name %}
-        <h1>Hello {{name}}</h1>
-
-</script>        
+        <h1 >Hello {{name}}</h1>       
     {% else %}
-        <h1>{{ current_user.id }}</h1>
-        <h3>Add Patient </h3>
+        <h1 style="text-align: center;">{{ current_user.id }}</h1>
+        <button class="btn btn-outline-info"  type="button" data-toggle="collapse" data-target="#patientform" aria-expanded="false" aria-controls="patientform">
+            Add Patient
+        </button>
         <br>
-        <form action="/patient/add" method = "POST">
-            {{ form.hidden_tag() }}
-            {{ form.name.label(class="form-label") }}
-            {{ form.name(class="form-control") }}
-            <br>
-            {{ form.email.label(class="form-label") }}
-            {{ form.email(class="form-control") }}
-            <br>
-            {{ form.date.label(class="form-label") }}
-            {{ form.date(class="form-control") }}
-            <br>
-            {{ form.submit(class="btn btn-secondary") }}
-        </form>
         <br>
+        <div class="collapse" id="patientform">
+            <div class="card card-body">
+                <form action="/patient/add" method = "POST">
+                    {{ form.hidden_tag() }}
+                    {{ form.name.label(class="form-label") }}
+                    {{ form.name(class="form-control") }}
+                    <br>
+                    {{ form.email.label(class="form-label") }}
+                    {{ form.email(class="form-control") }}
+                    <br>
+                    {{ form.date.label(class="form-label") }}
+                    {{ form.date(class="form-control") }}
+                    <br>
+                    {{ form.submit(class="btn btn-secondary") }}
+                </form>
+            </div>
+        </div>
+        <br>
+        
         <table  id="patientRecords">
             <tr>
                 <th rowspan="2">Patient ID</th>
                 <th rowspan="2">Patient Name</th>
                 <th rowspan="2">Patient Email Address</th>
-                <th rowspan="2">Date of Last Visit</th>
+                <th rowspan="2" style="white-space: nowrap;">Date of Last Visit</th>
                 <th colspan="2">BaseLine Survey Completion Status</th>
                 <th colspan="2">FollowUp 1 Completion Status</th>
                 <th colspan="2">FollowUp 2 Completion Status</th>
-                <th rowpan="2">New Prescription Treatment Start Date</th>
-                <th rowpan="2">Send Invitation/Reminder</th>
-                <th rowpan="2">Remove Patient</th> <!--Need to be hidden after baseline-->
-                <th rowpan="2">Update Record</th>
+                <th rowspan="2" >New &nbsp;&nbsp;&nbsp;Prescription&nbsp;&nbsp; Treatment Start Date</th>
+                <th rowspan="2">Send Invitation/Reminder</th>
+                <th rowspan="2">Remove Patient</th> <!--Need to be hidden after baseline-->
+                <th rowspan="2">Update Record</th>
             </tr>
             <tr>
                 <th>ECP</th>
@@ -60,45 +66,45 @@
 
                 <!-- BaseLine Status -->
                 {% if my_ECP.baseline_survey_completion_status %}
-                    <td>{{ my_ECP.baseline_survey_completion_status }}</td>
+                    <td class="status">{{ my_ECP.baseline_survey_completion_status }}</td>
                 {% else %}
-                    <td>Not Yet Available</td>
+                    <td class="status">Not Yet Available</td>
                 {% endif %}
                 {% if my_patient.baseline_survey_completion_status %}
-                    <td>{{ my_patient.baseline_survey_completion_status }}</td>
+                    <td class="status">{{ my_patient.baseline_survey_completion_status }}</td>
                 {% else %}
-                    <td>Not Yet Available</td>
+                    <td class="status">Not Yet Available</td>
                 {% endif %}
 
                 <!-- FollowUp-1 Status -->
                 {% if my_ECP.followUp_one_completion_status %}
-                    <td>{{ my_ECP.followUp_one_completion_status }}</td>
+                    <td class="status">{{ my_ECP.followUp_one_completion_status }}</td>
                 {% else %}
-                    <td>Not Yet Available</td>
+                    <td class="status">Not Yet Available</td>
                 {% endif %}
                 {% if my_patient.followUp_one_completion_status %}
-                    <td>{{ my_patient.followUp_one_completion_status }}</td>
+                    <td class="status">{{ my_patient.followUp_one_completion_status }}</td>
                 {% else %}
-                    <td>Not Yet Available</td>
+                    <td class="status">Not Yet Available</td>
                 {% endif %}
 
                 <!-- FollowUp-2 Status -->
                 {% if my_ECP.followUp_two_completion_status %}
-                    <td>{{ my_ECP.followUp_two_completion_status }}</td>
+                    <td class="status">{{ my_ECP.followUp_two_completion_status }}</td>
                 {% else %}
-                    <td>Not Yet Available</td>
+                    <td class="status">Not Yet Available</td>
                 {% endif %}
                 {% if my_patient.followUp_two_completion_status %}
-                    <td>{{ my_patient.followUp_two_completion_status }}</td>
-                {% else %}
-                    <td>Not Yet Available</td>
+                    <td class="status">{{ my_patient.followUp_two_completion_status }}</td>
+                {% else %}  
+                    <td class="status">Not Yet Available</td>
                 {% endif %}
                 
                 <!-- New Prescription Start Date -->
                 <td>{{ my_patient.new_prescription_treatment_start_date }}</td>
 
                 <!-- Actions -->
-
+                
             </tr>
             {% endfor %}
         </table>
