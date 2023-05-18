@@ -57,12 +57,13 @@ class Patient(db.Model):
     name = db.Column(db.String(200), nullable=False)
     email = db.Column(db.String(200), nullable=False, unique=True)
     date_added = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+
     last_visit_date = db.Column(db.String(200))
     physician_id = db.Column(db.String, db.ForeignKey('physician.id', ondelete='CASCADE'), nullable=False)
     physician_id_ref_link = db.relationship('Physician', backref='patient')
     active_inactive = db.Column(db.Boolean, default=True)
 
-    last_invite_date = db.Column(db.DateTime, default=datetime.utcnow)
+    last_invite_date = db.Column(db.Date, default=datetime.utcnow)
     number_of_invites = db.Column(db.Integer, default=0)
     invitation_sent = db.Column(db.Boolean, default=False)
 
@@ -104,7 +105,7 @@ def load_user(user_id):
 
 ############## Form Classes ################
 
-# Create UserForm Class
+# Create Patient Form Class
 class PatientForm(FlaskForm):
     name = StringField("Name", validators=[DataRequired()])
     email = EmailField("Email", validators=[DataRequired()])
@@ -155,7 +156,7 @@ def login():
             else:
                 flash("User Doesn't Exists")                
         return render_template("login.html", form=form)
-    return render_template("index.html")
+    return redirect(url_for('add_patient'))
 
 
 # Dasbhoard page
@@ -189,8 +190,8 @@ def generate_patients_id():
 @login_required
 def add_patient():
     form = PatientForm()
-    my_patients = Patient.query.order_by(Patient.date_added)
-    my_ECP = Patient.query.filter_by(id=current_user.id)
+    my_patients = Patient.query.filter_by(physician_id=current_user.id).order_by(Patient.active_inactive.desc(), Patient.id)
+    my_ECP = Physician.query.filter_by(id=current_user.id)
 
     if form.validate_on_submit():
         user = Patient.query.filter_by(email=form.email.data).first()
@@ -214,32 +215,71 @@ def add_patient():
                            )
 
 
-# # Update User Details
-# @app.route('/update/<id>', methods=['GET', 'POST'])
-# def update_user(id):
-#     form = UserForm()
-#     name_to_update = Admin.query.get_or_404(id)
-#     if request.method == "POST":
-#         name_to_update.name = request.form['name']
-#         name_to_update.email = request.form['email']
-#         name_to_update.fav_color = request.form['fav_color']
-#         db.session.commit()
-#         flash("User Updated Successfully ")
-#         our_users = Admin.query.order_by(Admin.date_added)
-#         return render_template("add_user.html",form=form, our_users = our_users)
-#     else:
-#         return render_template("update_user.html",form=form, name_to_update = name_to_update)
+# Update User Details
+@app.route('/update/<id>', methods=['GET', 'POST'])
+def update_user(id):
+    form = PatientForm()
+    my_patients = Patient.query.order_by(Patient.active_inactive.desc(), Patient.id)
+    my_ECP = Physician.query.filter_by(id=current_user.id)
+    patient_to_update = Patient.query.get_or_404(id)
+    if request.method == "POST":
+        if((patient_to_update.email == request.form['email']) and (patient_to_update.name == request.form['name']) and (patient_to_update.last_visit_date == request.form['date'])):
+            flash("No change entered !")
+            return redirect(url_for('add_patient'))
+        else:
+            if(patient_to_update.email == request.form['email']):
+                patient_to_update.name = request.form['name']
+                patient_to_update.email = request.form['email']
+                patient_to_update.last_visit_date = request.form['date']
+                db.session.commit()
+                flash("User Updated Successfully ")
+                return redirect(url_for('add_patient'))
+            else:
+                #checking Duplicate email as when update
+                patient_to_update_email_dup_chk = Patient.query.filter_by(email=request.form['email']).first()
+                if patient_to_update_email_dup_chk is None:
+                    patient_to_update.name = request.form['name']
+                    patient_to_update.email = request.form['email']
+                    patient_to_update.last_visit_date = request.form['date']
+                    db.session.commit()
+                    flash("Note: You have changed email address")
+                    flash("User Updated Successfully ")
+                    return redirect(url_for('add_patient'))
+                else:
+                    flash("Entered email address to change is already registered with us. Please try with another one !")
+                    return render_template("update_patient.html",form=form, patient_to_update=patient_to_update, my_ECP=my_ECP)
+    else:
+        return render_template("update_patient.html",form=form, patient_to_update=patient_to_update, my_ECP=my_ECP)
     
-# # Delete User
-# @app.route('/delete/<email>', methods=['GET', 'POST'])
-# def delete_user(email):
-#     user_to_delete = Admin.query.get_or_404(email)
-#     db.session.delete(user_to_delete)
-#     db.session.commit()
-#     flash("User Deleted Successfully")
-#     form = UserForm()
-#     our_users = Admin.query.order_by(Admin.date_added)
-#     return render_template("add_user.html",form=form, our_users = our_users)
+# Delete User
+@app.route('/delete/<id>', methods=['GET', 'POST'])
+def delete_user(id):
+    my_ECP = Physician.query.filter_by(id=current_user.id)
+    patient_to_delete = Patient.query.get_or_404(id)
+    patient_to_delete.active_inactive = False
+    #db.session.delete(patient_to_delete)
+    db.session.commit()
+    flash("Patient Deleted Successfully")
+    # form = PatientForm()
+    my_patients = Patient.query.order_by(Patient.active_inactive.desc(), Patient.id)
+    return redirect(url_for('add_patient'))
+
+# Send Email
+@app.route('/send_email/<id>', methods=['GET', 'POST'])
+def send_email(id):
+    form = PatientForm()
+    my_patients = Patient.query.order_by(Patient.active_inactive.desc(), Patient.id)
+    patient_to_invite_sent = Patient.query.get_or_404(id)
+    patient_email_to_invite_sent = patient_to_invite_sent.email
+
+    patient_to_invite_sent.last_invite_date = datetime.utcnow().date()
+    patient_to_invite_sent.number_of_invites = patient_to_invite_sent.number_of_invites + 1
+    patient_to_invite_sent.invitation_sent = True
+    db.session.commit()
+
+    my_ECP = Patient.query.filter_by(id=current_user.id)
+    flash("Invitation sent to " + str(patient_email_to_invite_sent))
+    return render_template("add_patient.html",form=form, my_patients=my_patients, my_ECP=my_ECP)
 
 ############## Errors ###############
 # Invalid URL
