@@ -1,5 +1,4 @@
 let statuses = document.getElementsByClassName("status");
-console.log(statuses.length);
 for(let i=0; i<statuses.length; i++){
     if(statuses[i].innerHTML == "Not Yet Available"){
         statuses[i].classList.add("none")
@@ -13,4 +12,9 @@ for(let i=0; i<statuses.length; i++){
     else {
         statuses[i].classList.add("otherstatus")
     }
+}
+
+let active_inactive = document.getElementsByClassName("False");
+for(let i=0; i<active_inactive.length; i++){
+    active_inactive[i].classList.add("none")  
 }

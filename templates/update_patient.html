@@ -7,16 +7,16 @@
     </div>
 {% endfor %}       
     <br>
-    <form action="/update/{{name_to_update.id}}" method = "POST">
+    <form action="/update/{{patient_to_update.id}}" method = "POST">
         {{ form.hidden_tag() }}
         {{ form.name.label(class="form-label") }}
-        {{ form.name(class="form-control", value=name_to_update.name ) }}
+        {{ form.name(class="form-control", value=patient_to_update.name ) }}
         <br>
         {{ form.email.label(class="form-label") }}
-        {{ form.email(class="form-control", value=name_to_update.email) }}
+        {{ form.email(class="form-control", value=patient_to_update.email) }}
         <br>
-        {{ form.fav_color.label(class="form-label") }}
-        {{ form.fav_color(class="form-control", value=name_to_update.fav_color) }}
+        {{ form.date.label(class="form-label") }}
+        {{ form.date(class="form-control", value=patient_to_update.last_visit_date) }}
         <br>
         {{ form.submit(class="btn btn-secondary") }}
     </form>

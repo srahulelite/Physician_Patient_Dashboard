@@ -9,14 +9,14 @@
     {% if name %}
         <h1 >Hello {{name}}</h1>       
     {% else %}
-        <h1 style="text-align: center;">{{ current_user.id }}</h1>
+        <p style="text-align: center; margin-top: 1%;"><img style="width:35px;height:35px;" src="{{url_for('static', filename='images/user.png')}}"><span style="font-size:15px;">&nbsp;{{ current_user.id }}</span></p>
         <button class="btn btn-outline-info"  type="button" data-toggle="collapse" data-target="#patientform" aria-expanded="false" aria-controls="patientform">
             Add Patient
         </button>
         <br>
         <br>
         <div class="collapse" id="patientform">
-            <div class="card card-body">
+            <div class="card card-body" >
                 <form action="/patient/add" method = "POST">
                     {{ form.hidden_tag() }}
                     {{ form.name.label(class="form-label") }}
@@ -33,7 +33,6 @@
             </div>
         </div>
         <br>
-        
         <table  id="patientRecords">
             <tr>
                 <th rowspan="2">Patient ID</th>
@@ -44,7 +43,7 @@
                 <th colspan="2">FollowUp 1 Completion Status</th>
                 <th colspan="2">FollowUp 2 Completion Status</th>
                 <th rowspan="2" >New &nbsp;&nbsp;&nbsp;Prescription&nbsp;&nbsp; Treatment Start Date</th>
-                <th rowspan="2">Send Invitation/Reminder</th>
+                <th rowspan="2">Send Invite/Reminder</th>
                 <th rowspan="2">Remove Patient</th> <!--Need to be hidden after baseline-->
                 <th rowspan="2">Update Record</th>
             </tr>
@@ -57,10 +56,10 @@
                 <th>Patient</th>
             </tr>
             {% for my_patient in my_patients %}
-            <tr>
+            <tr class="{{my_patient.active_inactive}}">
                 <td>{{ my_patient.id }}</td>    
-                <td>{{ my_patient.name }}</td>
-                <td>{{ my_patient.email }}</td>
+                <td>{{ my_patient.name | title }}</td>
+                <td>{{ my_patient.email | lower }}</td>
                 <!-- <td>{{ my_patient.date_added }}</td> -->
                 <td>{{ my_patient.last_visit_date | datetimeformat  }}</td>
 
@@ -101,10 +100,44 @@
                 {% endif %}
                 
                 <!-- New Prescription Start Date -->
-                <td>{{ my_patient.new_prescription_treatment_start_date }}</td>
+                <td>{{ my_patient.last_invite_date }}</td>
 
                 <!-- Actions -->
-                
+                {% if my_patient.active_inactive %}
+                    <td>
+                        <a href="{{ url_for('send_email', id=my_patient.id) }}">
+                            {% if my_patient.invitation_sent %}
+                                <button class="btn btn-sm btn-info" id="{{ my_patient.id }}" title="Total Invites = {{my_patient.number_of_invites}} and Last Invite = {{my_patient.last_invite_date }}">Send Reminder</button>
+                            {% else %}
+                                <button class="btn btn-sm btn-info" id="{{ my_patient.id }}" >Send Invite</button>
+                            {% endif %}
+                        </a>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('delete_user', id=my_patient.id) }}">
+                            <button class="btn btn-sm btn-warning" id={{ my_patient.id }} >Remove</button>
+                        </a>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('update_user', id=my_patient.id) }}">
+                            <button class="btn btn-sm btn-primary" id={{ my_patient.id }} >Update</button>
+                        </a>
+                    </td>
+                {% else %}
+                    <td>
+                        {% if my_patient.invitation_sent %}
+                            <button class="btn btn-sm btn-info" disabled id="{{ my_patient.email }}" >Send Reminder </span> </button>
+                        {% else %}
+                            <button class="btn btn-sm btn-info" disabled id="{{ my_patient.email }}" >Send Invite</button>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-warning" disabled id="{{ my_patient.email }}" >Remove</button>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" disabled id="{{ my_patient.email }}" >Update</button>
+                    </td>
+                {% endif %}
             </tr>
             {% endfor %}
         </table>
