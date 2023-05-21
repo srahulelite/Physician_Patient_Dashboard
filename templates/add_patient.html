@@ -42,7 +42,7 @@
                 <th colspan="2">BaseLine Survey Completion Status</th>
                 <th colspan="2">FollowUp 1 Completion Status</th>
                 <th colspan="2">FollowUp 2 Completion Status</th>
-                <th rowspan="2" >New &nbsp;&nbsp;&nbsp;Prescription&nbsp;&nbsp; Treatment Start Date</th>
+                <th rowspan="2" >New Prescription Treatment Start Date</th>
                 <th rowspan="2">Send Invite/Reminder</th>
                 <th rowspan="2">Remove Patient</th> <!--Need to be hidden after baseline-->
                 <th rowspan="2">Update Record</th>
@@ -65,12 +65,14 @@
 
                 <!-- BaseLine Status -->
                 {% if my_ECP.baseline_survey_completion_status %}
-                    <td class="status">{{ my_ECP.baseline_survey_completion_status }}</td>
+                    <td class="status">{{ my_ECP.baseline_survey_completion_status }}<br>
+                        {{ my_ECP.baseline_survey_completion_date | dbdatetimeformat }}</td>
                 {% else %}
                     <td class="status">Not Yet Available</td>
                 {% endif %}
                 {% if my_patient.baseline_survey_completion_status %}
-                    <td class="status">{{ my_patient.baseline_survey_completion_status }}</td>
+                    <td class="status">{{ my_patient.baseline_survey_completion_status }}- Due<br>
+                        {{ my_patient.baseline_survey_due_date | dbdatetimeformat }}</td>
                 {% else %}
                     <td class="status">Not Yet Available</td>
                 {% endif %}
@@ -100,7 +102,7 @@
                 {% endif %}
                 
                 <!-- New Prescription Start Date -->
-                <td>{{ my_patient.last_invite_date }}</td>
+                <td>{{ my_patient.new_prescription_treatment_start_date }}</td>
 
                 <!-- Actions -->
                 {% if my_patient.active_inactive %}

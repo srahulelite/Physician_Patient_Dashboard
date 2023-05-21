@@ -12,17 +12,22 @@ table, td, tr, th{
     border-collapse: collapse;
     word-wrap: normal;
     text-align: center;
+    font-size:12px;
 }
 
 .none{
     background-color:lightgray;
 }
 
-.completed{
+.complete{
     background-color:lightgreen;
 }
 
 .notStarted{
+    background-color:#f4f4f4;
+}
+
+.notStarted7daysago{
     background-color:palegoldenrod;
 }
 
@@ -108,4 +113,10 @@ table, td, tr, th{
 .btn-outline-primary:not(:disabled):not(.disabled).active:focus,
 .show>.btn-outline-primary.dropdown-toggle:focus {
     box-shadow: 0 0 0 .2rem rgba(119, 204, 204, 0.5)
+}
+.btn{
+    font-size: 11px;
+}
+.btn-warning{
+    background-color: #f1bc5c;
 }

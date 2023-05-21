@@ -8,7 +8,10 @@ from flask_migrate import Migrate
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, login_required, user_logged_out, logout_user, current_user
-from datetime import datetime
+from datetime import datetime, date
+import schedule
+import time
+
 
 # Create a flask instance
 app = Flask(__name__)
@@ -33,23 +36,31 @@ migrate = Migrate(app, db)
 # Create Physician Model
 
 class Physician(db.Model, UserMixin):
-    id = db.Column(db.String(200), primary_key=True)
-    pwd = db.Column(db.String(256), nullable=False)
+    id = db.Column(db.String(10), primary_key=True)
+    pwd = db.Column(db.String(20), nullable=False)
+
+    new_prescription_treatment_start_date = db.Column(db.String(20))
     
-    baseline_survey_completion_status = db.Column(db.String(256))
+    baseline_survey_due_date = db.Column(db.Date)
     baseline_survey_start_date = db.Column(db.Date)
+    baseline_survey_completion_status = db.Column(db.String(100))
     baseline_survey_completion_date = db.Column(db.Date)
     baseline_survey_wave_number = db.Column(db.Integer)
+    baseline_survey_patient_id = db.Column(db.String(10))
 
+    followUp_one_survey_due_date = db.Column(db.Date)
     followUp_one_survey_start_date = db.Column(db.Date)
-    followUp_one_completion_status = db.Column(db.String(256))
+    followUp_one_completion_status = db.Column(db.String(100))
     followUp_one_completion_date = db.Column(db.Date)
     followUp_one_wave_number = db.Column(db.Integer)
+    followUp_one_patient_id = db.Column(db.String(10))
     
+    followUp_two_survey_due_date = db.Column(db.Date)
     followUp_two_survey_start_date = db.Column(db.Date)
-    followUp_two_completion_status = db.Column(db.String(256))
-    followUp_two_completion_date = db.Column(db.String(256))
+    followUp_two_completion_status = db.Column(db.String(100))
+    followUp_two_completion_date = db.Column(db.Date)
     followUp_two_wave_number = db.Column(db.Integer)
+    followUp_two_patient_id = db.Column(db.String(10))
 
 # Create Patient Model
 class Patient(db.Model):
@@ -67,20 +78,21 @@ class Patient(db.Model):
     number_of_invites = db.Column(db.Integer, default=0)
     invitation_sent = db.Column(db.Boolean, default=False)
 
-    new_prescription_treatment_start_date = db.Column(db.String(20))
-
-    baseline_survey_completion_status = db.Column(db.String(256))
+    baseline_survey_due_date = db.Column(db.Date)
     baseline_survey_start_date = db.Column(db.Date)
+    baseline_survey_completion_status = db.Column(db.String(100))
     baseline_survey_completion_date = db.Column(db.Date)
     baseline_survey_wave_number = db.Column(db.Integer)
 
+    followUp_one_survey_due_date = db.Column(db.Date)
     followUp_one_survey_start_date = db.Column(db.Date)
-    followUp_one_completion_status = db.Column(db.String(256))
+    followUp_one_completion_status = db.Column(db.String(100))
     followUp_one_completion_date = db.Column(db.Date)
     followUp_one_wave_number = db.Column(db.Integer)
     
+    followUp_two_survey_due_date = db.Column(db.Date)
     followUp_two_survey_start_date = db.Column(db.Date)
-    followUp_two_completion_status = db.Column(db.String(256))
+    followUp_two_completion_status = db.Column(db.String(100))
     followUp_two_completion_date = db.Column(db.Date)
     followUp_two_wave_number = db.Column(db.Integer)
 
@@ -107,15 +119,20 @@ def load_user(user_id):
 
 # Create Patient Form Class
 class PatientForm(FlaskForm):
-    name = StringField("Name", validators=[DataRequired()])
-    email = EmailField("Email", validators=[DataRequired()])
+    name = StringField("Name", validators=[DataRequired(), Length(min=3,max=35,message="Name should be in between 3 to 35 characters")])
+    email = EmailField("Email", validators=[DataRequired(), Length(min=3,max=35,message="email should be in between 3 to 35 characters")])
     date = DateField("Last visit Date", validators=[DataRequired()])
     submit = SubmitField("Submit")
 
+    def validate_date(form, field):
+        if field.data > date.today():
+            flash("Last Date could not be after today")
+            raise ValidationError("Last Date could not be after today")
+
 # Create Login Class
 class LoginForm(FlaskForm):
-    id = StringField("User ID", validators=[DataRequired()])
-    password = PasswordField("Password", validators=[DataRequired()])
+    id = StringField("User ID", validators=[DataRequired(),Length(min=4,max=8,message="ID should be in between 4 to 8 characters")])
+    password = PasswordField("Password", validators=[DataRequired(),Length(min=4,max=10,message="Password should be in between 4 to 10 characters")])
     submit = SubmitField("Submit")
 
 
@@ -125,6 +142,14 @@ class LoginForm(FlaskForm):
 @app.template_filter('datetimeformat')
 def datetimeformat(value):
     x = value.split("-")
+    x = str(x[1]) + "-" + str(x[2]) + "-" + str(x[0])
+    value = datetime.strptime(x, "%m-%d-%Y")
+    return value.strftime('%m-%d-%Y')
+
+@app.template_filter('dbdatetimeformat')
+def dbdatetimeformat(value):
+    x = value.strftime('%Y-%m-%d')
+    x = x.split("-")
     x = str(x[1]) + "-" + str(x[2]) + "-" + str(x[0])
     value = datetime.strptime(x, "%m-%d-%Y")
     return value.strftime('%m-%d-%Y')
@@ -191,7 +216,7 @@ def generate_patients_id():
 def add_patient():
     form = PatientForm()
     my_patients = Patient.query.filter_by(physician_id=current_user.id).order_by(Patient.active_inactive.desc(), Patient.id)
-    my_ECP = Physician.query.filter_by(id=current_user.id)
+    my_ECP = Physician.query.filter_by(id=current_user.id).first()
 
     if form.validate_on_submit():
         user = Patient.query.filter_by(email=form.email.data).first()
@@ -199,6 +224,8 @@ def add_patient():
             user = Patient(id=generate_patients_id(), name=form.name.data, 
                         email=form.email.data, 
                         last_visit_date=form.date.data,
+                        baseline_survey_due_date = form.date.data,
+                        baseline_survey_completion_status = 'Available, Not Yet Started',
                         physician_id_ref_link = current_user
                         )
             db.session.add(user)
@@ -220,17 +247,24 @@ def add_patient():
 def update_user(id):
     form = PatientForm()
     my_patients = Patient.query.order_by(Patient.active_inactive.desc(), Patient.id)
-    my_ECP = Physician.query.filter_by(id=current_user.id)
+    my_ECP = Physician.query.filter_by(id=current_user.id).first()
     patient_to_update = Patient.query.get_or_404(id)
     if request.method == "POST":
         if((patient_to_update.email == request.form['email']) and (patient_to_update.name == request.form['name']) and (patient_to_update.last_visit_date == request.form['date'])):
             flash("No change entered !")
             return redirect(url_for('add_patient'))
         else:
+            #Checking if Last Visit Date Changed
+            if (patient_to_update.last_visit_date == request.form['date']):
+                patient_to_update.last_visit_date = request.form['date']
+            else:
+                update_patient_last_visit_date(patient_to_update.id, request.form['date'])
+
+            #checking if patient email ID is same as entered in form
             if(patient_to_update.email == request.form['email']):
                 patient_to_update.name = request.form['name']
                 patient_to_update.email = request.form['email']
-                patient_to_update.last_visit_date = request.form['date']
+                
                 db.session.commit()
                 flash("User Updated Successfully ")
                 return redirect(url_for('add_patient'))
@@ -240,7 +274,6 @@ def update_user(id):
                 if patient_to_update_email_dup_chk is None:
                     patient_to_update.name = request.form['name']
                     patient_to_update.email = request.form['email']
-                    patient_to_update.last_visit_date = request.form['date']
                     db.session.commit()
                     flash("Note: You have changed email address")
                     flash("User Updated Successfully ")
@@ -251,10 +284,14 @@ def update_user(id):
     else:
         return render_template("update_patient.html",form=form, patient_to_update=patient_to_update, my_ECP=my_ECP)
     
+def update_patient_last_visit_date(patient_id, last_visit_date):
+    #current_user.id
+    return False
+
 # Delete User
 @app.route('/delete/<id>', methods=['GET', 'POST'])
 def delete_user(id):
-    my_ECP = Physician.query.filter_by(id=current_user.id)
+    my_ECP = Physician.query.filter_by(id=current_user.id).first()
     patient_to_delete = Patient.query.get_or_404(id)
     patient_to_delete.active_inactive = False
     #db.session.delete(patient_to_delete)
@@ -268,7 +305,7 @@ def delete_user(id):
 @app.route('/send_email/<id>', methods=['GET', 'POST'])
 def send_email(id):
     form = PatientForm()
-    my_patients = Patient.query.order_by(Patient.active_inactive.desc(), Patient.id)
+    # my_patients = Patient.query.order_by(Patient.active_inactive.desc(), Patient.id)
     patient_to_invite_sent = Patient.query.get_or_404(id)
     patient_email_to_invite_sent = patient_to_invite_sent.email
 
@@ -277,9 +314,89 @@ def send_email(id):
     patient_to_invite_sent.invitation_sent = True
     db.session.commit()
 
-    my_ECP = Patient.query.filter_by(id=current_user.id)
+    # my_ECP = Patient.query.filter_by(id=current_user.id).first()
     flash("Invitation sent to " + str(patient_email_to_invite_sent))
-    return render_template("add_patient.html",form=form, my_patients=my_patients, my_ECP=my_ECP)
+    # return render_template("add_patient.html",form=form, my_patients=my_patients, my_ECP=my_ECP)
+    return redirect(url_for('add_patient'))
+
+
+
+############# Collect Data from URL's #########
+# http://localhost:5000/collect?Phyid=PHY0101&Patid=PT10001&status=co&ntm=0&stw=ecp&wave=0
+# http://localhost:5000/collect?Phyid=PHY0101&Patid=PT10001&status=co&ntm=0&stw=pat&wave=0
+#Phyid
+#Patid
+#status - co, oq, term
+#ntm - 0, YYYY-MM
+#stw - ecp, pat
+#wave - 0-7
+
+
+@app.route('/collect', methods=['GET', 'POST'])
+def collect():
+    response = request.args.to_dict()
+    my_ECP = Physician.query.filter_by(id=response['Phyid']).first()
+    my_PAT = Patient.query.filter_by(id=response['Patid']).first()
+
+    if (response['wave'] == '0'):
+        # Baseline Data Punching #
+        if(response['stw'] == 'ecp'):
+            # Hint: Comparision of ID's is case sensitive
+            
+
+            # print(response['Phyid'])
+            if my_ECP:
+                if (my_PAT.physician_id ==  my_ECP.id):
+                    my_ECP.baseline_survey_completion_status = getStatusOverwritten(response['status'])
+                    my_ECP.baseline_survey_completion_date = date.today()
+                    my_ECP.baseline_survey_wave_number = int(response['wave'])
+                    my_ECP.baseline_survey_patient_id =response['Patid']
+                    db.session.commit()
+                    return 'Doctor ko patient bhi mil gaya'
+                else:
+                    return 'Doctor ko uska patient nai mil paya'
+            else:
+                return 'Doctor nahi mila'
+        elif (response['stw'] == 'pat'):
+            my_patient = Patient.query.filter_by(id=response['patient_id'])
+            if my_patient:
+                my_patient.baseline_survey_completion_status = getStatusOverwritten(response['status'])
+                my_patient.baseline_survey_completion_date = date.today()
+                my_patient.baseline_survey_wave_number = int(response['wave'])
+                my_patient.physician_id = response['Phyid']
+                db.session.commit()
+                return 'Mareez Mil gaya'
+        else:
+            return 'URL has been rewritten, No response. Please take full screenshot and forward to your \
+        Support Team'
+    elif(response['wave_number'] == '1'):
+        # Do something for wave 1
+        return 'something'
+    else:
+        # Do something for last wave
+        return 'something'
+
+# Rephrasing Status
+def getStatusOverwritten(status):
+    if status == 'co':
+        return 'complete'
+    elif status == 'oq':
+        return 'OverQuota'
+    elif status == 'term':
+        return "Didn't qualify"
+
+###### Cron Jobs #######
+# def job():
+#     print("I'm working...")
+
+# # schedule.every(5).seconds.do(job)
+
+# # schedule.every(8).hours.do(job)
+
+# while True:
+#     schedule.run_pending()
+#     time.sleep(1)
+
 
 ############## Errors ###############
 # Invalid URL
@@ -293,3 +410,4 @@ def page_not_found(e):
     return render_template("500.html"), 500
 
 ############## Errors ###############
+

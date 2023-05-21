@@ -1,8 +1,8 @@
-"""Initial Migration
+"""Due Date Added
 
-Revision ID: f27e4159028c
+Revision ID: 3fbbe2c29a3d
 Revises: 
-Create Date: 2023-05-18 02:47:06.930190
+Create Date: 2023-05-19 14:27:04.026234
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'f27e4159028c'
+revision = '3fbbe2c29a3d'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -30,14 +30,17 @@ def upgrade():
     op.create_table('physician',
     sa.Column('id', sa.String(length=200), nullable=False),
     sa.Column('pwd', sa.String(length=256), nullable=False),
+    sa.Column('baseline_survey_due_date', sa.Date(), nullable=True),
     sa.Column('baseline_survey_completion_status', sa.String(length=256), nullable=True),
     sa.Column('baseline_survey_start_date', sa.Date(), nullable=True),
     sa.Column('baseline_survey_completion_date', sa.Date(), nullable=True),
     sa.Column('baseline_survey_wave_number', sa.Integer(), nullable=True),
+    sa.Column('followUp_one_survey_due_date', sa.Date(), nullable=True),
     sa.Column('followUp_one_survey_start_date', sa.Date(), nullable=True),
     sa.Column('followUp_one_completion_status', sa.String(length=256), nullable=True),
     sa.Column('followUp_one_completion_date', sa.Date(), nullable=True),
     sa.Column('followUp_one_wave_number', sa.Integer(), nullable=True),
+    sa.Column('followUp_two_survey_due_date', sa.Date(), nullable=True),
     sa.Column('followUp_two_survey_start_date', sa.Date(), nullable=True),
     sa.Column('followUp_two_completion_status', sa.String(length=256), nullable=True),
     sa.Column('followUp_two_completion_date', sa.String(length=256), nullable=True),
@@ -56,14 +59,17 @@ def upgrade():
     sa.Column('number_of_invites', sa.Integer(), nullable=True),
     sa.Column('invitation_sent', sa.Boolean(), nullable=True),
     sa.Column('new_prescription_treatment_start_date', sa.String(length=20), nullable=True),
+    sa.Column('baseline_survey_due_date', sa.Date(), nullable=True),
     sa.Column('baseline_survey_completion_status', sa.String(length=256), nullable=True),
     sa.Column('baseline_survey_start_date', sa.Date(), nullable=True),
     sa.Column('baseline_survey_completion_date', sa.Date(), nullable=True),
     sa.Column('baseline_survey_wave_number', sa.Integer(), nullable=True),
+    sa.Column('followUp_one_survey_due_date', sa.Date(), nullable=True),
     sa.Column('followUp_one_survey_start_date', sa.Date(), nullable=True),
     sa.Column('followUp_one_completion_status', sa.String(length=256), nullable=True),
     sa.Column('followUp_one_completion_date', sa.Date(), nullable=True),
     sa.Column('followUp_one_wave_number', sa.Integer(), nullable=True),
+    sa.Column('followUp_two_survey_due_date', sa.Date(), nullable=True),
     sa.Column('followUp_two_survey_start_date', sa.Date(), nullable=True),
     sa.Column('followUp_two_completion_status', sa.String(length=256), nullable=True),
     sa.Column('followUp_two_completion_date', sa.Date(), nullable=True),
