@@ -14,6 +14,10 @@ table, td, tr, th{
     text-align: center;
     font-size:12px;
 }
+.status{
+    min-width: 60px;
+    max-width: 100px;
+}
 
 .none{
     background-color:lightgray;

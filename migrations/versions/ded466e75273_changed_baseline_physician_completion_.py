@@ -1,8 +1,8 @@
-"""Due Date Added
+"""Changed Baseline Physician Completion status
 
-Revision ID: 3fbbe2c29a3d
+Revision ID: ded466e75273
 Revises: 
-Create Date: 2023-05-19 14:27:04.026234
+Create Date: 2023-05-23 01:49:06.581806
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '3fbbe2c29a3d'
+revision = 'ded466e75273'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -28,23 +28,27 @@ def upgrade():
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('physician',
-    sa.Column('id', sa.String(length=200), nullable=False),
-    sa.Column('pwd', sa.String(length=256), nullable=False),
+    sa.Column('id', sa.String(length=10), nullable=False),
+    sa.Column('pwd', sa.String(length=20), nullable=False),
+    sa.Column('new_prescription_treatment_start_date', sa.String(length=20), nullable=True),
     sa.Column('baseline_survey_due_date', sa.Date(), nullable=True),
-    sa.Column('baseline_survey_completion_status', sa.String(length=256), nullable=True),
     sa.Column('baseline_survey_start_date', sa.Date(), nullable=True),
+    sa.Column('baseline_survey_completion_status', sa.String(length=100), nullable=True),
     sa.Column('baseline_survey_completion_date', sa.Date(), nullable=True),
     sa.Column('baseline_survey_wave_number', sa.Integer(), nullable=True),
+    sa.Column('baseline_survey_patient_id', sa.String(length=10), nullable=True),
     sa.Column('followUp_one_survey_due_date', sa.Date(), nullable=True),
     sa.Column('followUp_one_survey_start_date', sa.Date(), nullable=True),
-    sa.Column('followUp_one_completion_status', sa.String(length=256), nullable=True),
+    sa.Column('followUp_one_completion_status', sa.String(length=100), nullable=True),
     sa.Column('followUp_one_completion_date', sa.Date(), nullable=True),
     sa.Column('followUp_one_wave_number', sa.Integer(), nullable=True),
+    sa.Column('followUp_one_patient_id', sa.String(length=10), nullable=True),
     sa.Column('followUp_two_survey_due_date', sa.Date(), nullable=True),
     sa.Column('followUp_two_survey_start_date', sa.Date(), nullable=True),
-    sa.Column('followUp_two_completion_status', sa.String(length=256), nullable=True),
-    sa.Column('followUp_two_completion_date', sa.String(length=256), nullable=True),
+    sa.Column('followUp_two_completion_status', sa.String(length=100), nullable=True),
+    sa.Column('followUp_two_completion_date', sa.Date(), nullable=True),
     sa.Column('followUp_two_wave_number', sa.Integer(), nullable=True),
+    sa.Column('followUp_two_patient_id', sa.String(length=10), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('patient',
@@ -58,20 +62,19 @@ def upgrade():
     sa.Column('last_invite_date', sa.Date(), nullable=True),
     sa.Column('number_of_invites', sa.Integer(), nullable=True),
     sa.Column('invitation_sent', sa.Boolean(), nullable=True),
-    sa.Column('new_prescription_treatment_start_date', sa.String(length=20), nullable=True),
     sa.Column('baseline_survey_due_date', sa.Date(), nullable=True),
-    sa.Column('baseline_survey_completion_status', sa.String(length=256), nullable=True),
     sa.Column('baseline_survey_start_date', sa.Date(), nullable=True),
+    sa.Column('baseline_survey_completion_status', sa.String(length=100), nullable=True),
     sa.Column('baseline_survey_completion_date', sa.Date(), nullable=True),
     sa.Column('baseline_survey_wave_number', sa.Integer(), nullable=True),
     sa.Column('followUp_one_survey_due_date', sa.Date(), nullable=True),
     sa.Column('followUp_one_survey_start_date', sa.Date(), nullable=True),
-    sa.Column('followUp_one_completion_status', sa.String(length=256), nullable=True),
+    sa.Column('followUp_one_completion_status', sa.String(length=100), nullable=True),
     sa.Column('followUp_one_completion_date', sa.Date(), nullable=True),
     sa.Column('followUp_one_wave_number', sa.Integer(), nullable=True),
     sa.Column('followUp_two_survey_due_date', sa.Date(), nullable=True),
     sa.Column('followUp_two_survey_start_date', sa.Date(), nullable=True),
-    sa.Column('followUp_two_completion_status', sa.String(length=256), nullable=True),
+    sa.Column('followUp_two_completion_status', sa.String(length=100), nullable=True),
     sa.Column('followUp_two_completion_date', sa.Date(), nullable=True),
     sa.Column('followUp_two_wave_number', sa.Integer(), nullable=True),
     sa.ForeignKeyConstraint(['physician_id'], ['physician.id'], ondelete='CASCADE'),

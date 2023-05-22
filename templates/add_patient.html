@@ -64,15 +64,38 @@
                 <td>{{ my_patient.last_visit_date | datetimeformat  }}</td>
 
                 <!-- BaseLine Status -->
+                <!-- ECP -->
                 {% if my_ECP.baseline_survey_completion_status %}
-                    <td class="status">{{ my_ECP.baseline_survey_completion_status }}<br>
-                        {{ my_ECP.baseline_survey_completion_date | dbdatetimeformat }}</td>
+                    {% if my_ECP.baseline_survey_completion_status == "Available, Not Yet Started" %}
+                        <td class="status">
+                            {{ my_ECP.baseline_survey_completion_status }}<br>
+                            Due {{ my_ECP.baseline_survey_due_date | dbdatetimeformat }}
+                            <span class="activeWave"><a href="https://emea.focusvision.com/survey/selfserve/581/230446?list=1&patid={{my_patient.id}}&phyid={{current_user.id}}">Link</a></span>
+                        </td>
+                    {% else %}
+                        <td class="status">
+                            {{ my_ECP.baseline_survey_completion_status}}<br>
+                            {{ my_ECP.baseline_survey_completion_date | dbdatetimeformat }}
+                        </td>
+                    {% endif %}
                 {% else %}
                     <td class="status">Not Yet Available</td>
                 {% endif %}
+
+                <!-- Patient -->
+
                 {% if my_patient.baseline_survey_completion_status %}
-                    <td class="status">{{ my_patient.baseline_survey_completion_status }}- Due<br>
-                        {{ my_patient.baseline_survey_due_date | dbdatetimeformat }}</td>
+                    {% if my_patient.baseline_survey_completion_status == "Available, Not Yet Started" %}
+                        <td class="status">
+                            {{ my_patient.baseline_survey_completion_status }}<br>
+                            Due {{ my_patient.baseline_survey_due_date | dbdatetimeformat }}
+                        </td>
+                    {% else %}
+                        <td class="status">
+                            {{ my_patient.baseline_survey_completion_status}}<br>
+                            {{ my_patient.baseline_survey_completion_date | dbdatetimeformat }}
+                        </td>
+                    {% endif %}
                 {% else %}
                     <td class="status">Not Yet Available</td>
                 {% endif %}

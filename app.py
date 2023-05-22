@@ -8,15 +8,15 @@ from flask_migrate import Migrate
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, login_required, user_logged_out, logout_user, current_user
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import schedule
 import time
-
+import os
 
 # Create a flask instance
 app = Flask(__name__)
-app.config['DEBUG'] = True
 app.app_context().push()
+app.config['DEBUG'] = True
 
 # Add Database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ClientAdmin.db'
@@ -43,7 +43,7 @@ class Physician(db.Model, UserMixin):
     
     baseline_survey_due_date = db.Column(db.Date)
     baseline_survey_start_date = db.Column(db.Date)
-    baseline_survey_completion_status = db.Column(db.String(100))
+    baseline_survey_completion_status = db.Column(db.String(100), default="Available, Not Yet Started")
     baseline_survey_completion_date = db.Column(db.Date)
     baseline_survey_wave_number = db.Column(db.Integer)
     baseline_survey_patient_id = db.Column(db.String(10))
@@ -126,8 +126,13 @@ class PatientForm(FlaskForm):
 
     def validate_date(form, field):
         if field.data > date.today():
-            flash("Last Date could not be after today")
+            flash("Last Visit Date could not be after today")
             raise ValidationError("Last Date could not be after today")
+        elif field.data < (date.today() - timedelta(days=1)):
+            flash("Last Visit Date should not be prior to yesterday")
+            raise ValidationError("Last Visit Date should not be prior to yesterday")
+        else:
+            pass
 
 # Create Login Class
 class LoginForm(FlaskForm):
@@ -219,28 +224,34 @@ def add_patient():
     my_ECP = Physician.query.filter_by(id=current_user.id).first()
 
     if form.validate_on_submit():
-        user = Patient.query.filter_by(email=form.email.data).first()
-        if user is None:
-            user = Patient(id=generate_patients_id(), name=form.name.data, 
-                        email=form.email.data, 
-                        last_visit_date=form.date.data,
-                        baseline_survey_due_date = form.date.data,
-                        baseline_survey_completion_status = 'Available, Not Yet Started',
-                        physician_id_ref_link = current_user
-                        )
-            db.session.add(user)
-            db.session.commit()
-            flash("User Added Successfully")
-            return redirect(url_for('add_patient'))
-        else:
-            flash(form.email.data + " already registered !! Please try again")
+        if(ecp_last_wave_completed(current_user.id)):
+            user = Patient.query.filter_by(email=form.email.data).first()
+            if user is None:
+                user = Patient(id=generate_patients_id(), name=form.name.data, 
+                            email=form.email.data, 
+                            last_visit_date=form.date.data,
+                            baseline_survey_due_date = form.date.data,
+                            baseline_survey_completion_status = 'Available, Not Yet Started',
+                            physician_id_ref_link = current_user
+                            )
+                db.session.add(user)
+                db.session.commit()
+                flash("Patient Added Successfully")
+                return redirect(url_for('add_patient'))
+            else:
+                flash(form.email.data + " already registered !! Please try again")
+        return render_template("add_patient.html", 
+                            form=form, 
+                            my_ECP=my_ECP, 
+                            my_patients=my_patients, 
+                            current_user=current_user
+                            )
     return render_template("add_patient.html", 
-                           form=form, 
-                           my_ECP=my_ECP, 
-                           my_patients=my_patients, 
-                           current_user=current_user
-                           )
-
+                            form=form, 
+                            my_ECP=my_ECP, 
+                            my_patients=my_patients, 
+                            current_user=current_user
+                            )
 
 # Update User Details
 @app.route('/update/<id>', methods=['GET', 'POST'])
@@ -249,44 +260,58 @@ def update_user(id):
     my_patients = Patient.query.order_by(Patient.active_inactive.desc(), Patient.id)
     my_ECP = Physician.query.filter_by(id=current_user.id).first()
     patient_to_update = Patient.query.get_or_404(id)
-    if request.method == "POST":
-        if((patient_to_update.email == request.form['email']) and (patient_to_update.name == request.form['name']) and (patient_to_update.last_visit_date == request.form['date'])):
-            flash("No change entered !")
-            return redirect(url_for('add_patient'))
-        else:
-            #Checking if Last Visit Date Changed
-            if (patient_to_update.last_visit_date == request.form['date']):
-                patient_to_update.last_visit_date = request.form['date']
-            else:
-                update_patient_last_visit_date(patient_to_update.id, request.form['date'])
-
-            #checking if patient email ID is same as entered in form
-            if(patient_to_update.email == request.form['email']):
-                patient_to_update.name = request.form['name']
-                patient_to_update.email = request.form['email']
-                
-                db.session.commit()
-                flash("User Updated Successfully ")
+    if form.validate_on_submit():
+        if request.method == "POST":
+            if((patient_to_update.email == request.form['email']) and (patient_to_update.name == request.form['name']) and (patient_to_update.last_visit_date == request.form['date'])):
+                flash("No change entered !")
                 return redirect(url_for('add_patient'))
             else:
-                #checking Duplicate email as when update
-                patient_to_update_email_dup_chk = Patient.query.filter_by(email=request.form['email']).first()
-                if patient_to_update_email_dup_chk is None:
+                #Checking if Last Visit Date Changed
+                if (patient_to_update.last_visit_date == request.form['date']):
+                    patient_to_update.last_visit_date = request.form['date']
+                else:
+                    if(ecp_last_wave_completed(current_user.id)):
+                        patient_to_update.last_visit_date = request.form['date']
+                    else:
+                        return redirect(url_for('add_patient'))
+
+                #checking if patient email ID is same as entered in form
+                if(patient_to_update.email == request.form['email']):
                     patient_to_update.name = request.form['name']
                     patient_to_update.email = request.form['email']
+                    
                     db.session.commit()
-                    flash("Note: You have changed email address")
                     flash("User Updated Successfully ")
                     return redirect(url_for('add_patient'))
                 else:
-                    flash("Entered email address to change is already registered with us. Please try with another one !")
-                    return render_template("update_patient.html",form=form, patient_to_update=patient_to_update, my_ECP=my_ECP)
+                    #checking Duplicate email as when update
+                    patient_to_update_email_dup_chk = Patient.query.filter_by(email=request.form['email']).first()
+                    if patient_to_update_email_dup_chk is None:
+                        patient_to_update.name = request.form['name']
+                        patient_to_update.email = request.form['email']
+                        db.session.commit()
+                        flash("Note: You have changed email address")
+                        flash("User Updated Successfully ")
+                        return redirect(url_for('add_patient'))
+                    else:
+                        flash("Entered email address to change is already registered with us. Please try with another one !")
+                        return render_template("update_patient.html",form=form, patient_to_update=patient_to_update, my_ECP=my_ECP)
+        else:
+            return render_template("update_patient.html",form=form, patient_to_update=patient_to_update, my_ECP=my_ECP)
     else:
         return render_template("update_patient.html",form=form, patient_to_update=patient_to_update, my_ECP=my_ECP)
     
-def update_patient_last_visit_date(patient_id, last_visit_date):
-    #current_user.id
-    return False
+def ecp_last_wave_completed(id):
+    if current_user.followUp_two_completion_status == 'complete':
+        last_wave = 2
+    elif current_user.followUp_one_completion_status == 'complete':
+        last_wave = 1
+    elif current_user.baseline_survey_completion_status == 'complete':
+        last_wave = 0
+    else:
+        flash("ECP has not completed the survey")
+        last_wave = None
+    return last_wave
 
 # Delete User
 @app.route('/delete/<id>', methods=['GET', 'POST'])
@@ -306,17 +331,19 @@ def delete_user(id):
 def send_email(id):
     form = PatientForm()
     # my_patients = Patient.query.order_by(Patient.active_inactive.desc(), Patient.id)
-    patient_to_invite_sent = Patient.query.get_or_404(id)
-    patient_email_to_invite_sent = patient_to_invite_sent.email
+    if ecp_last_wave_completed(current_user.id):
+        patient_to_invite_sent = Patient.query.get_or_404(id)
+        patient_email_to_invite_sent = patient_to_invite_sent.email
 
-    patient_to_invite_sent.last_invite_date = datetime.utcnow().date()
-    patient_to_invite_sent.number_of_invites = patient_to_invite_sent.number_of_invites + 1
-    patient_to_invite_sent.invitation_sent = True
-    db.session.commit()
+        patient_to_invite_sent.last_invite_date = datetime.utcnow().date()
+        patient_to_invite_sent.number_of_invites = patient_to_invite_sent.number_of_invites + 1
+        patient_to_invite_sent.invitation_sent = True
+        db.session.commit()
 
-    # my_ECP = Patient.query.filter_by(id=current_user.id).first()
-    flash("Invitation sent to " + str(patient_email_to_invite_sent))
-    # return render_template("add_patient.html",form=form, my_patients=my_patients, my_ECP=my_ECP)
+        # my_ECP = Patient.query.filter_by(id=current_user.id).first()
+        flash("Invitation sent to " + str(patient_email_to_invite_sent))
+        # return render_template("add_patient.html",form=form, my_patients=my_patients, my_ECP=my_ECP)
+        return redirect(url_for('add_patient'))
     return redirect(url_for('add_patient'))
 
 
@@ -342,7 +369,6 @@ def collect():
         # Baseline Data Punching #
         if(response['stw'] == 'ecp'):
             # Hint: Comparision of ID's is case sensitive
-            
 
             # print(response['Phyid'])
             if my_ECP:
@@ -352,23 +378,34 @@ def collect():
                     my_ECP.baseline_survey_wave_number = int(response['wave'])
                     my_ECP.baseline_survey_patient_id =response['Patid']
                     db.session.commit()
-                    return 'Doctor ko patient bhi mil gaya'
+
+                    ## Success Page
+                    return render_template("return_info.html",return_info=getResponsePage(response['status']))
                 else:
-                    return 'Doctor ko uska patient nai mil paya'
+                    return 'This patient has not been registered with you'
             else:
-                return 'Doctor nahi mila'
+                return 'This ECP has not been registered.'
         elif (response['stw'] == 'pat'):
-            my_patient = Patient.query.filter_by(id=response['patient_id'])
-            if my_patient:
-                my_patient.baseline_survey_completion_status = getStatusOverwritten(response['status'])
-                my_patient.baseline_survey_completion_date = date.today()
-                my_patient.baseline_survey_wave_number = int(response['wave'])
-                my_patient.physician_id = response['Phyid']
-                db.session.commit()
-                return 'Mareez Mil gaya'
+            my_patient = Patient.query.filter_by(id=response['Patid']).first()
+            try:
+                if my_patient:
+                    my_patient.baseline_survey_completion_status = getStatusOverwritten(response['status'])
+                    my_patient.baseline_survey_completion_date = date.today()
+                    my_patient.baseline_survey_wave_number = int(response['wave'])
+                    my_patient.physician_id = response['Phyid']
+                    my_patient.last_invite_date = datetime.utcnow().date()
+                    my_patient.number_of_invites = 0
+                    my_patient.invitation_sent = False
+                    db.session.commit()
+                    ## Success Page
+                    return render_template("return_info.html",return_info=getResponsePage(response['status']))
+                
+                else:
+                    return "Patient does not exist !"
+            except:
+                print("Something went wrong with Patient ID, Please connect with you Support")
         else:
-            return 'URL has been rewritten, No response. Please take full screenshot and forward to your \
-        Support Team'
+            return 'URL has been rewritten, No response. Please take full screenshot and forward to your Support Team'
     elif(response['wave_number'] == '1'):
         # Do something for wave 1
         return 'something'
@@ -385,6 +422,24 @@ def getStatusOverwritten(status):
     elif status == 'term':
         return "Didn't qualify"
 
+def getResponsePage(status):
+    if status == 'co':
+        return_info = "Thank you for completing this survey, You will soon receive login information\
+         for a dashboard where you can enter eligible patients for the survey and track \
+         survey completion. You will be expected to schedule visits with each patient to \
+        complete the patient chart portion of the study at each study time point."
+    elif status == 'term':
+        return_info = "Unfortunately, you have not qualified for this study. Please reach out to \
+        <a href='mailto:aathavale@trinitylifesciences.com'>aathavale@trinitylifesciences.com </a> \
+         if you have any questions"
+    elif status == 'oq':
+        return_info = "Unfortunately, you have not qualified for this study. Please reach out to \
+        <a href='mailto:aathavale@trinitylifesciences.com'>aathavale@trinitylifesciences.com </a> \
+        if you have any questions"
+    else:
+        return_info = "Wrong return Code !! Please contact your Support Team" 
+    return return_info
+    
 ###### Cron Jobs #######
 # def job():
 #     print("I'm working...")
@@ -411,3 +466,6 @@ def page_not_found(e):
 
 ############## Errors ###############
 
+if __name__ == "__main__":
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=True, host='0.0.0.0', port=port)
