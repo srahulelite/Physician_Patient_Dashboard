@@ -9,6 +9,9 @@ for(let i=0; i<statuses.length; i++){
     else if(statuses[i].innerHTML.includes("Available a week ago, not yet started")){
         statuses[i].classList.add("notStarted7daysago")
     }
+    else if(statuses[i].innerHTML.includes("Started, Not Completed")){
+        statuses[i].classList.add("notCompleted")
+    }
     else if(statuses[i].innerHTML.includes("Available, Not Yet Started")){
         statuses[i].classList.add("notStarted")
     }

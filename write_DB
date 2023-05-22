@@ -1,0 +1,27 @@
+from app import db
+from app import Physician
+db.create_all()
+h5 = Physician(id="PHY0105", pwd="PHY0105")
+h6 = Physician(id="PHY0106", pwd="PHY0106")
+h7 = Physician(id="PHY0107", pwd="PHY0107")
+h8 = Physician(id="PHY0108", pwd="PHY0108")
+h9 = Physician(id="PHY0109", pwd="PHY0109")
+h10 = Physician(id="PHY0110", pwd="PHY0110")
+h11 = Physician(id="PHY0111", pwd="PHY0111")
+h12 = Physician(id="PHY0112", pwd="PHY0112")
+h13 = Physician(id="PHY0113", pwd="PHY0113")
+h14 = Physician(id="PHY0114", pwd="PHY0114")
+
+db.session.add(h5)
+db.session.add(h6)
+db.session.add(h7)
+db.session.add(h8)
+db.session.add(h9)
+db.session.add(h10)
+db.session.add(h11)
+db.session.add(h12)
+db.session.add(h13)
+db.session.add(h14)
+
+db.session.commit()
+print("Process Completed")

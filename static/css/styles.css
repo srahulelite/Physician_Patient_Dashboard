@@ -16,7 +16,7 @@ table, td, tr, th{
 }
 .status{
     min-width: 60px;
-    max-width: 100px;
+    max-width: 120px;
 }
 
 .none{
@@ -30,7 +30,9 @@ table, td, tr, th{
 .notStarted{
     background-color:#f4f4f4;
 }
-
+.notCompleted{
+    background-color: paleturquoise;
+}
 .notStarted7daysago{
     background-color:palegoldenrod;
 }

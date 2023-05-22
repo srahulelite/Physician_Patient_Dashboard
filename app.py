@@ -12,6 +12,10 @@ from datetime import datetime, date, timedelta
 import schedule
 import time
 import os
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 
 # Create a flask instance
 app = Flask(__name__)
@@ -41,7 +45,7 @@ class Physician(db.Model, UserMixin):
 
     new_prescription_treatment_start_date = db.Column(db.String(20))
     
-    baseline_survey_due_date = db.Column(db.Date)
+    baseline_survey_due_date = db.Column(db.Date,default=datetime.utcnow)
     baseline_survey_start_date = db.Column(db.Date)
     baseline_survey_completion_status = db.Column(db.String(100), default="Available, Not Yet Started")
     baseline_survey_completion_date = db.Column(db.Date)
@@ -224,34 +228,28 @@ def add_patient():
     my_ECP = Physician.query.filter_by(id=current_user.id).first()
 
     if form.validate_on_submit():
-        if(ecp_last_wave_completed(current_user.id)):
-            user = Patient.query.filter_by(email=form.email.data).first()
-            if user is None:
-                user = Patient(id=generate_patients_id(), name=form.name.data, 
-                            email=form.email.data, 
-                            last_visit_date=form.date.data,
-                            baseline_survey_due_date = form.date.data,
-                            baseline_survey_completion_status = 'Available, Not Yet Started',
-                            physician_id_ref_link = current_user
-                            )
-                db.session.add(user)
-                db.session.commit()
-                flash("Patient Added Successfully")
-                return redirect(url_for('add_patient'))
-            else:
-                flash(form.email.data + " already registered !! Please try again")
-        return render_template("add_patient.html", 
-                            form=form, 
-                            my_ECP=my_ECP, 
-                            my_patients=my_patients, 
-                            current_user=current_user
-                            )
+        user = Patient.query.filter_by(email=form.email.data).first()
+        if user is None:
+            user = Patient(id=generate_patients_id(), name=form.name.data, 
+                        email=form.email.data, 
+                        last_visit_date=form.date.data,
+                        baseline_survey_due_date = form.date.data,
+                        baseline_survey_completion_status = 'Available, Not Yet Started',
+                        physician_id_ref_link = current_user
+                        )
+            db.session.add(user)
+            db.session.commit()
+            flash("Patient Added Successfully")
+            return redirect(url_for('add_patient'))
+        else:
+            flash(form.email.data + " already registered !! Please try again")
     return render_template("add_patient.html", 
-                            form=form, 
-                            my_ECP=my_ECP, 
-                            my_patients=my_patients, 
-                            current_user=current_user
-                            )
+                        form=form, 
+                        my_ECP=my_ECP, 
+                        my_patients=my_patients, 
+                        current_user=current_user
+                        )
+
 
 # Update User Details
 @app.route('/update/<id>', methods=['GET', 'POST'])
@@ -331,19 +329,42 @@ def delete_user(id):
 def send_email(id):
     form = PatientForm()
     # my_patients = Patient.query.order_by(Patient.active_inactive.desc(), Patient.id)
-    if ecp_last_wave_completed(current_user.id):
-        patient_to_invite_sent = Patient.query.get_or_404(id)
-        patient_email_to_invite_sent = patient_to_invite_sent.email
+    # if ecp_last_wave_completed(current_user.id):
+    patient_to_invite_sent = Patient.query.get_or_404(id)
 
-        patient_to_invite_sent.last_invite_date = datetime.utcnow().date()
-        patient_to_invite_sent.number_of_invites = patient_to_invite_sent.number_of_invites + 1
-        patient_to_invite_sent.invitation_sent = True
-        db.session.commit()
-
-        # my_ECP = Patient.query.filter_by(id=current_user.id).first()
+    url_string = "http://localhost:5000/interncollect?patid=" + patient_to_invite_sent.id + "&phyid=" + current_user.id + "&wave=0&stw=pat"
+    
+    patient_email_to_invite_sent = patient_to_invite_sent.email
+    patient_name = patient_to_invite_sent.name
+    msgFrom = 'no-reply@acuitykpcustomsolution.com'
+    msgSubject = 'ATLAS Patient Survey Notification'
+    msg = MIMEMultipart ()
+    msg ['From'] = msgFrom
+    msg ['To'] = patient_email_to_invite_sent
+    msg ['Subject'] = msgSubject
+    message = '<h2>Hi ' + patient_name + ', <br> Hope you are doing well. \
+                Please find the link below to fill survey asap.\
+                <a href= '+url_string +'> <button>Launch Survey</button></a>'
+    try:
+        msg.attach (MIMEText (message))
+        mailserver = smtplib. SMTP ('email-smtp.eu-west-1.amazonaws.com', 587)
+        #identify ourselves to smtp gmail client
+        mailserver.ehlo ()
+        #secure our email with tls encryption
+        mailserver.starttls ()
+        #re-identify ourselves as an encrypted connection
+        mailserver.ehlo ()
+        mailserver.login('AKIAZJB4DCASUVVKDUOJ', 'BC0JtUuOkNq42GGpB6f3aLB8YKuittWah41g7R5Mu3o/')
+        mailserver.sendmail (msgFrom, patient_email_to_invite_sent, msg.as_string())
+        mailserver.quit ()
         flash("Invitation sent to " + str(patient_email_to_invite_sent))
-        # return render_template("add_patient.html",form=form, my_patients=my_patients, my_ECP=my_ECP)
-        return redirect(url_for('add_patient'))
+    except:
+        flash("Email may not be sent due to some technical Error")
+
+    patient_to_invite_sent.last_invite_date = datetime.utcnow().date()
+    patient_to_invite_sent.number_of_invites = patient_to_invite_sent.number_of_invites + 1
+    patient_to_invite_sent.invitation_sent = True
+    db.session.commit()
     return redirect(url_for('add_patient'))
 
 
@@ -358,6 +379,56 @@ def send_email(id):
 #stw - ecp, pat
 #wave - 0-7
 
+@app.route('/interncollect', methods=['GET', 'POST'])
+def interncollect():
+    response = request.args.to_dict()
+    my_ECP = Physician.query.filter_by(id=response['phyid']).first()
+    my_PAT = Patient.query.filter_by(id=response['patid']).first()
+    if (response['wave'] == '0'):
+        # Baseline Data Punching #
+        if(response['stw'] == 'ecp'):
+            my_ECP.baseline_survey_start_date = date.today()
+            my_ECP.baseline_survey_completion_status = "Started, Not Completed"
+            db.session.commit()
+            url_string = "https://emea.focusvision.com/survey/selfserve/581/230446?list=1&patid=" + my_PAT.id + "&phyid="+ current_user.id
+        elif(response['stw'] == 'pat'):
+            my_PAT.baseline_survey_start_date = date.today()
+            my_PAT.baseline_survey_completion_status = "Started, Not Completed"
+            db.session.commit()
+            url_string = "https://emea.focusvision.com/survey/selfserve/581/230332?list=1&patid=" + my_PAT.id + "&phyid="+ current_user.id
+        else:
+            return "Url ReWritten, Please contact support"
+        
+    
+    elif (response['wave'] == '1'):
+        # FollowUP 1 Survey Data Punching #
+        if(response['stw'] == 'ecp'):
+            my_ECP.followUp_one_survey_start_date = date.today()
+            my_ECP.followUp_one_completion_status = "Started, Not Completed"
+            db.session.commit()
+            url_string = "https://emea.focusvision.com/survey/selfserve/581/230503?list=1&ntm=" + my_ECP.new_prescription_treatment_start_date +"&patid=" + my_PAT.id + "&phyid="+ current_user.id
+        elif(response['stw'] == 'pat'):
+            my_PAT.baseline_survey_start_date = date.today()
+            my_PAT.baseline_survey_completion_status = "Started, Not Completed"
+            db.session.commit()
+            url_string = "https://emea.focusvision.com/survey/selfserve/581/230501?list=1&ntm=" + my_ECP.new_prescription_treatment_start_date +"&patid=" + my_PAT.id + "&phyid="+ current_user.id
+        else:
+            return "Url ReWritten, Please contact support"
+        
+
+    # elif (response['wave'] == '2'):
+    #     # FollowUP 1 Data Punching #
+    #     if(response['stw'] == 'ecp'):
+    #         my_ECP.baseline_survey_start_date = date.today()
+    #         my_ECP.baseline_survey_completion_status = "Started, Not Completed"
+    #     elif(response['stw'] == 'pat'):
+    #         my_PAT.baseline_survey_start_date = date.today()
+    #         my_PAT.baseline_survey_completion_status = "Started, Not Completed"
+    #     else:
+    #         return "Url ReWritten, Please contact support"
+    #     url_string = "https://emea.focusvision.com/survey/selfserve/581/230446?interncollect=1&patid=" + my_PAT.id + "&phyid="+ current_user.id
+
+    return redirect(url_string)
 
 @app.route('/collect', methods=['GET', 'POST'])
 def collect():

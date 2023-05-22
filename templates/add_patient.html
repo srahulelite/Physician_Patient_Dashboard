@@ -69,31 +69,38 @@
                     {% if my_ECP.baseline_survey_completion_status == "Available, Not Yet Started" %}
                         <td class="status">
                             {{ my_ECP.baseline_survey_completion_status }}<br>
-                            Due {{ my_ECP.baseline_survey_due_date | dbdatetimeformat }}
-                            <span class="activeWave"><a href="https://emea.focusvision.com/survey/selfserve/581/230446?list=1&patid={{my_patient.id}}&phyid={{current_user.id}}">Link</a></span>
+                            {% if my_ECP.baseline_survey_due_date  %}
+                                Due {{ my_ECP.baseline_survey_due_date | dbdatetimeformat }}
+                            {% endif %}
+                            <span class="activeWave"><a href="http://localhost:5000/interncollect?patid={{my_patient.id}}&phyid={{current_user.id}}&wave=0&stw=ecp" target="_blank">Link</a></span>
                         </td>
                     {% else %}
                         <td class="status">
                             {{ my_ECP.baseline_survey_completion_status}}<br>
-                            {{ my_ECP.baseline_survey_completion_date | dbdatetimeformat }}
-                        </td>
+                            {% if my_ECP.baseline_survey_completion_date  %}
+                                {{ my_ECP.baseline_survey_completion_date | dbdatetimeformat }}
+                            {% endif %}
+                            </td>
                     {% endif %}
                 {% else %}
                     <td class="status">Not Yet Available</td>
                 {% endif %}
 
                 <!-- Patient -->
-
                 {% if my_patient.baseline_survey_completion_status %}
                     {% if my_patient.baseline_survey_completion_status == "Available, Not Yet Started" %}
                         <td class="status">
                             {{ my_patient.baseline_survey_completion_status }}<br>
-                            Due {{ my_patient.baseline_survey_due_date | dbdatetimeformat }}
+                            {% if my_patient.baseline_survey_due_date  %}
+                                Due {{ my_patient.baseline_survey_due_date | dbdatetimeformat }}
+                            {% endif %}
                         </td>
                     {% else %}
                         <td class="status">
                             {{ my_patient.baseline_survey_completion_status}}<br>
-                            {{ my_patient.baseline_survey_completion_date | dbdatetimeformat }}
+                            {% if my_patient.baseline_survey_due_date  %}
+                                {{ my_patient.baseline_survey_completion_date | dbdatetimeformat }}
+                            {% endif %}
                         </td>
                     {% endif %}
                 {% else %}
@@ -101,13 +108,37 @@
                 {% endif %}
 
                 <!-- FollowUp-1 Status -->
+                <!-- ECP -->
                 {% if my_ECP.followUp_one_completion_status %}
-                    <td class="status">{{ my_ECP.followUp_one_completion_status }}</td>
+                    {% if my_ECP.followUp_one_completion_status == "Available, Not Yet Started" %}
+                        <td class="status">
+                            {{ my_ECP.followUp_one_completion_status }}<br>
+                            Due {{ my_ECP.followUp_one_survey_due_date | dbdatetimeformat }}
+                            <span class="activeWave"><a href="http://localhost:5000/interncollect?patid={{my_patient.id}}&phyid={{current_user.id}}&wave=1&stw=ecp" target="_blank">Link</a></span>
+                        </td>
+                    {% else %}
+                        <td class="status">
+                            {{ my_ECP.followUp_one_completion_status}}<br>
+                            {{ my_ECP.followUp_one_completion_date | dbdatetimeformat }}
+                        </td>
+                    {% endif %}
                 {% else %}
                     <td class="status">Not Yet Available</td>
                 {% endif %}
+
+                <!-- Patient -->
                 {% if my_patient.followUp_one_completion_status %}
-                    <td class="status">{{ my_patient.followUp_one_completion_status }}</td>
+                    {% if my_patient.followUp_one_completion_status == "Available, Not Yet Started" %}
+                        <td class="status">
+                            {{ my_patient.followUp_one_completion_status }}<br>
+                            Due {{ my_patient.followUp_one_survey_due_date | dbdatetimeformat }}
+                        </td>
+                    {% else %}
+                        <td class="status">
+                            {{ my_patient.followUp_one_completion_status}}<br>
+                            {{ my_patient.followUp_one_completion_date | dbdatetimeformat }}
+                        </td>
+                    {% endif %}
                 {% else %}
                     <td class="status">Not Yet Available</td>
                 {% endif %}
@@ -165,6 +196,8 @@
                 {% endif %}
             </tr>
             {% endfor %}
+            
+            
         </table>
     {% endif %}
 {% endblock %}
